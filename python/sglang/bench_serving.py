@@ -883,7 +883,10 @@ async def get_request(
             continue
 
         # Sample the request interval from the exponential distribution.
-        interval = np.random.exponential(1.0 / request_rate)
+        if not args.disable_exponential_interval:
+            interval = np.random.exponential(1.0 / request_rate)
+        else:
+            interval = 1.0 / request_rate
         # The next request will be sent after the interval.
         await asyncio.sleep(interval)
 
@@ -1059,6 +1062,11 @@ async def benchmark(
     # Run all requests
     benchmark_start_time = time.perf_counter()
     tasks: List[asyncio.Task] = []
+    req_id = 0
+    outputs: List[RequestFuncOutput] = []
+    total_requests = len(input_requests)
+    early_stop_threshold = int(total_requests * args.early_stop_ratio) if args.early_stop_ratio > 0 else None
+    
     async for request in get_request(input_requests, request_rate):
         prompt, prompt_len, output_len = request
         if lora_names != None and len(lora_names) != 0:
@@ -1066,6 +1074,11 @@ async def benchmark(
             lora_name = lora_names[idx]
         else:
             lora_name = None
+
+        if args.add_req_id:
+            # take req idx as req_id default
+            req_id += 1
+            extra_request_body["req_id"] = req_id
 
         request_func_input = RequestFuncInput(
             model=model_id,
@@ -1076,12 +1089,31 @@ async def benchmark(
             lora_name=lora_name,
             extra_request_body=extra_request_body,
         )
-        tasks.append(
-            asyncio.create_task(
-                limited_request_func(request_func_input=request_func_input, pbar=pbar)
-            )
+        task = asyncio.create_task(
+            limited_request_func(request_func_input=request_func_input, pbar=pbar)
         )
-    outputs: List[RequestFuncOutput] = await asyncio.gather(*tasks)
+        tasks.append(task)
+
+    # Process tasks with early stopping
+    results = []
+    for task in asyncio.as_completed(tasks):
+        try:
+            result = await task
+            results.append(result)
+            if early_stop_threshold is not None and len(results) >= early_stop_threshold:
+                print(f"\nEarly stopping after {len(results)} requests ({args.early_stop_ratio*100:.1f}% of total)")
+                # Cancel remaining tasks
+                for remaining_task in tasks:
+                    if not remaining_task.done():
+                        remaining_task.cancel()
+                break
+        except asyncio.CancelledError:
+            continue
+        except Exception as e:
+            print(f"Task failed with error: {e}")
+            results.append(None)
+
+    outputs = results
 
     # Stop profiler
     if profile:
@@ -1106,6 +1138,8 @@ async def benchmark(
 
     # Compute metrics and print results
     benchmark_duration = time.perf_counter() - benchmark_start_time
+    # NOTE: in early stop mode, the outputs is not complete and not sorted,
+    # so it's not matched with input_requests, but it's ok here
     metrics, output_lens = calculate_metrics(
         input_requests=input_requests,
         outputs=outputs,
@@ -1591,6 +1625,12 @@ if __name__ == "__main__":
         default=1,
         help="Number of warmup requests to run before the benchmark",
     )
+    parser.add_argument(
+        "--early-stop-ratio",
+        type=float,
+        default=-1,
+        help="Ratio of requests to stop early, -1 means no early stop",
+    )
 
     group = parser.add_argument_group("generated-shared-prefix dataset arguments")
     group.add_argument(
@@ -1622,6 +1662,22 @@ if __name__ == "__main__":
         type=int,
         default=256,
         help="Target length in tokens for outputs in generated-shared-prefix dataset",
+    )
+    parser.add_argument(
+        "--add-req-id",
+        action="store_true",
+        help="Add request ID to the request payload",
+    )
+    parser.add_argument(
+        "--req-id-start",
+        type=int,
+        default=0,
+        help="Start request ID from",
+    )
+    parser.add_argument(
+        "--disable-exponential-interval",
+        action="store_true",
+        help="Disable exponential interval",
     )
     args = parser.parse_args()
     run_benchmark(args)
