@@ -1062,23 +1062,27 @@ async def benchmark(
     # Run all requests
     benchmark_start_time = time.perf_counter()
     tasks: List[asyncio.Task] = []
-    req_id = 0
     outputs: List[RequestFuncOutput] = []
     total_requests = len(input_requests)
     early_stop_threshold = int(total_requests * args.early_stop_ratio) if args.early_stop_ratio > 0 else None
-    
+
+    req_id = 0
+    extra_request_body = {}
+
     async for request in get_request(input_requests, request_rate):
         prompt, prompt_len, output_len = request
-        if lora_names != None and len(lora_names) != 0:
+        if lora_names is not None and len(lora_names) != 0:
             idx = random.randint(0, len(lora_names) - 1)
             lora_name = lora_names[idx]
         else:
             lora_name = None
 
         if args.add_req_id:
-            # take req idx as req_id default
             req_id += 1
-            extra_request_body["req_id"] = req_id
+            current_req_body = extra_request_body.copy()
+            current_req_body["req_id"] = req_id
+        else:
+            current_req_body = extra_request_body
 
         request_func_input = RequestFuncInput(
             model=model_id,
@@ -1087,7 +1091,7 @@ async def benchmark(
             prompt_len=prompt_len,
             output_len=output_len,
             lora_name=lora_name,
-            extra_request_body=extra_request_body,
+            extra_request_body=current_req_body,
         )
         task = asyncio.create_task(
             limited_request_func(request_func_input=request_func_input, pbar=pbar)
