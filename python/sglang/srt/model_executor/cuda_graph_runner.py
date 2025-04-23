@@ -35,12 +35,16 @@ from sglang.srt.model_executor.forward_batch_info import (
     ForwardMode,
 )
 from sglang.srt.patch_torch import monkey_patch_torch_compile
-from sglang.srt.utils import get_available_gpu_memory, is_hip
-
-_is_hip = is_hip()
+from sglang.srt.utils import (
+    get_available_gpu_memory,
+    get_device_memory_capacity,
+    is_hip,
+)
 
 if TYPE_CHECKING:
     from sglang.srt.model_executor.model_runner import ModelRunner
+
+_is_hip = is_hip()
 
 
 def _to_torch(model: torch.nn.Module, reverse: bool, num_tokens: int):
@@ -129,7 +133,9 @@ def get_batch_sizes_to_capture(model_runner: ModelRunner):
                 list(range(1, 9)) + list(range(10, 33, 2)) + list(range(40, 161, 16))
             )
 
-        if _is_hip:
+        gpu_mem = get_device_memory_capacity()
+        # Batch size of each rank will not become so large when DP is on
+        if gpu_mem is not None and gpu_mem > 81920 and server_args.dp_size == 1:
             capture_bs += list(range(160, 257, 8))
 
     if max(capture_bs) > model_runner.req_to_token_pool.size:
@@ -140,12 +146,11 @@ def get_batch_sizes_to_capture(model_runner: ModelRunner):
         ]
 
     capture_bs = list(sorted(set(capture_bs)))
-    capture_bs = [
-        bs
-        for bs in capture_bs
-        if bs <= model_runner.req_to_token_pool.size
-        and bs <= server_args.cuda_graph_max_bs
-    ]
+
+    assert len(capture_bs) > 0 and capture_bs[0] > 0
+    capture_bs = [bs for bs in capture_bs if bs <= model_runner.req_to_token_pool.size]
+    if server_args.cuda_graph_max_bs:
+        capture_bs = [bs for bs in capture_bs if bs <= server_args.cuda_graph_max_bs]
     compile_bs = (
         [bs for bs in capture_bs if bs <= server_args.torch_compile_max_bs]
         if server_args.enable_torch_compile
@@ -183,9 +188,15 @@ class CudaGraphRunner:
         self.speculative_algorithm = model_runner.server_args.speculative_algorithm
         self.tp_size = model_runner.server_args.tp_size
         self.dp_size = model_runner.server_args.dp_size
+        self.enable_deepep_moe = model_runner.server_args.enable_deepep_moe
+        self.moe_dense_fully_dp = (
+            model_runner.server_args.enable_deepep_moe
+            and model_runner.server_args.moe_dense_tp_size == 1
+        )
 
         # Batch sizes to capture
         self.capture_bs, self.compile_bs = get_batch_sizes_to_capture(model_runner)
+
         self.capture_forward_mode = ForwardMode.DECODE
         self.capture_hidden_mode = CaptureHiddenMode.NULL
         self.num_tokens_per_bs = 1
@@ -295,7 +306,9 @@ class CudaGraphRunner:
 
     def can_run(self, forward_batch: ForwardBatch):
         if self.enable_dp_attention or self.enable_sp_layernorm:
-            total_global_tokens = sum(forward_batch.global_num_tokens_cpu)
+            reducer = max if self.moe_dense_fully_dp else sum
+            # DeepEP MoE layers uses a fixed shape with masking instead of gather tokens from DP ranks.
+            total_global_tokens = reducer(forward_batch.global_num_tokens_cpu)
 
             is_bs_supported = forward_batch.can_run_dp_cuda_graph and (
                 total_global_tokens in self.graphs
@@ -478,8 +491,10 @@ class CudaGraphRunner:
 
         # Pad
         if self.enable_dp_attention or self.enable_sp_layernorm:
+            reducer = max if self.moe_dense_fully_dp else sum
+            # DeepEP MoE layers uses a fixed shape with masking instead of gather tokens from DP ranks.
             index = bisect.bisect_left(
-                self.capture_bs, sum(forward_batch.global_num_tokens_cpu)
+                self.capture_bs, reducer(forward_batch.global_num_tokens_cpu)
             )
         else:
             index = bisect.bisect_left(self.capture_bs, raw_bs)
