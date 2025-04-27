@@ -195,9 +195,11 @@ class ExpertLocationMetadata:
             model_config_for_expert_location.num_logical_experts
             + server_args.ep_num_redundant_experts
         )
+        print(f"num_physical_experts=[{num_physical_experts=}]")
         ep_size = server_args.ep_size
         assert num_physical_experts % ep_size == 0
         num_local_physical_experts = num_physical_experts // ep_size
+        print(f"num_local_physical_experts=[{num_local_physical_experts=}]")
 
         return dict(
             model_config_for_expert_location=model_config_for_expert_location,

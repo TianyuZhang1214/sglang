@@ -219,6 +219,9 @@ def rebalance_experts(
     if hack_shuffle:
         print("EPLB hack shuffle!!!")
         phy2log, log2phy, logcnt = _hack_shuffle(phy2log, log2phy, logcnt)
+    print(f"phy2log=[{phy2log}]")
+    print(f"log2phy=[{log2phy}]")
+    print(f"logcnt=[{logcnt}]")
 
     return phy2log, log2phy, logcnt
 
