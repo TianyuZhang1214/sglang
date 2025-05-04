@@ -96,6 +96,7 @@ class MiniLoadBalancer:
         assert endpoint[0] != "/", f"Endpoint should not start with '/': {endpoint}"
 
         async def stream_results():
+            prefill_response = None
             async with aiohttp.ClientSession(
                 timeout=aiohttp.ClientTimeout(
                     total=3600
