@@ -209,7 +209,15 @@ def get_weight_shapes(tp_size):
     for k_t in k_tp:
         new_t = (k_t[0], k_t[1] // tp_size)
         weight_shapes.append(new_t)
-    return weight_shapes
+    # return weight_shapes
+
+    needed = [
+        (2112, 7168),
+        (24576, 1536),
+        (36864, 7168),
+        (4096, 7168),
+    ]
+    return needed
 
 
 def benchmark_config(
