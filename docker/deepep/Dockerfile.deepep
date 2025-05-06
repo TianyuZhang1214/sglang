@@ -1,0 +1,70 @@
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/lmsysorg/sglang:v0.4.5.post3-cu125
+LABEL authors="moyun.zty"
+
+RUN apt update -y
+RUN apt install -y cmake
+
+RUN git clone https://github.com/deepseek-ai/DeepEP.git
+RUN git clone https://github.com/kvcache-ai/Mooncake.git
+
+RUN wget https://hpn-driver.oss-cn-hangzhou.aliyuncs.com/nic-drivers/shuyao/drivers/ubuntu22.04-rdma-core-23.10.tar
+RUN tar -xvf ubuntu22.04-rdma-core-23.10.tar
+
+WORKDIR ubuntu22.04-rdma-core-23.10
+RUN dpkg -i *.deb
+
+WORKDIR /sgl-workspace
+RUN wget "https://developer.nvidia.com/downloads/assets/secure/nvshmem/nvshmem_src_3.2.5-1.txz" && tar -xvf nvshmem_src_3.2.5-1.txz
+
+WORKDIR nvshmem_src
+RUN git apply /sgl-workspace/DeepEP/third-party/nvshmem.patch
+RUN CUDA_HOME=/usr/local/cuda \
+    GDRCOPY_HOME=/opt/gdrcopy \
+    NVSHMEM_SHMEM_SUPPORT=0 \
+    NVSHMEM_UCX_SUPPORT=0 \
+    NVSHMEM_USE_NCCL=0 \
+    NVSHMEM_MPI_SUPPORT=0 \
+    NVSHMEM_IBGDA_SUPPORT=1 \
+    NVSHMEM_PMIX_SUPPORT=0 \
+    NVSHMEM_TIMEOUT_DEVICE_POLLING=0 \
+    NVSHMEM_USE_GDRCOPY=1 \
+    cmake -S . -B build/ -DCMAKE_INSTALL_PREFIX=/opt/nvshmem
+
+WORKDIR build
+RUN make -j$(nproc)
+RUN make install
+
+WORKDIR /sgl-workspace
+RUN wget http://accl-n.oss-cn-beijing.aliyuncs.com/deepep/1.0.0.5/cuda%3A12.4.1-devel-ubuntu22.04/deep_ep-1.0.0.5%2B6519814-cp310-cp310-linux_x86_64.whl
+RUN pip install deep_ep-1.0.0.5+6519814-cp310-cp310-linux_x86_64.whl
+
+RUN wget https://go.dev/dl/go1.23.8.linux-amd64.tar.gz && \
+    rm -rf /usr/local/go && \
+    tar -C /usr/local -xzf go1.23.8.linux-amd64.tar.gz
+
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPROXY="https://goproxy.cn,direct"
+
+WORKDIR Mooncake
+RUN bash dependencies.sh
+
+WORKDIR build
+RUN cmake ..
+RUN make -j
+RUN sudo make install # optional, make it ready to be used by vLLM/SGLang
+
+WORKDIR /sgl-workspace
+COPY . /sgl-workspace/SGLang
+
+WORKDIR SGLang
+RUN pip3 config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
+RUN python3 -m pip install --upgrade pip
+RUN pip3 install --no-cache-dir -e "python[all]"
+RUN cat docker/deepep/deepep.env >> ~/.bashrc
+
+RUN sed -i 's/constexpr int kNumWarpsPerGroup = 10;/constexpr int kNumWarpsPerGroup = 8;/g' /sgl-workspace/DeepEP/csrc/kernels/internode_ll.cu
+RUN sed -i 's/constexpr int kNumWarpGroups = 3;/constexpr int kNumWarpGroups = 4;/g' /sgl-workspace/DeepEP/csrc/kernels/internode_ll.cu
+
+WORKDIR /sgl-workspace
+RUN rm -rf nvshmem_src_3.2.5-1.txz nvshmem_src ubuntu22.04-rdma-core-23.10.tar deep_ep-1.0.0.5+6519814-cp310-cp310-linux_x86_64.whl sglang Mooncake go1.23.8.linux-amd64.tar.gz ubuntu22.04-rdma-core-23.10
+
