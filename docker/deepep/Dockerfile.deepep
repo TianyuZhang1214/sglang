@@ -53,12 +53,18 @@ RUN cmake ..
 RUN make -j
 RUN sudo make install # optional, make it ready to be used by vLLM/SGLang
 
-WORKDIR /sgl-workspace
-COPY . /sgl-workspace/SGLang
 
-WORKDIR SGLang
+WORKDIR /sgl-workspace
 RUN pip3 config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 RUN python3 -m pip install --upgrade pip
+
+COPY . /sgl-workspace/SGLang
+
+RUN wget https://gosspublic.alicdn.com/ossutil/v2/2.1.1/ossutil-2.1.1-linux-amd64.zip?spm=a2c4g.11186623.0.0.5d404c9eXO8MtS&file=ossutil-2.1.1-linux-amd64.zip
+RUN unzip ossutil-2.1.1-linux-amd64.zip
+COPY ossutil-2.1.1-linux-amd64/ossutil /usr/local/bin/
+
+WORKDIR SGLang
 RUN pip3 install --no-cache-dir -e "python[all]"
 RUN cat docker/deepep/deepep.env >> ~/.bashrc
 
@@ -66,5 +72,7 @@ RUN sed -i 's/constexpr int kNumWarpsPerGroup = 10;/constexpr int kNumWarpsPerGr
 RUN sed -i 's/constexpr int kNumWarpGroups = 3;/constexpr int kNumWarpGroups = 4;/g' /sgl-workspace/DeepEP/csrc/kernels/internode_ll.cu
 
 WORKDIR /sgl-workspace
-RUN rm -rf nvshmem_src_3.2.5-1.txz nvshmem_src ubuntu22.04-rdma-core-23.10.tar deep_ep-1.0.0.5+6519814-cp310-cp310-linux_x86_64.whl sglang Mooncake go1.23.8.linux-amd64.tar.gz ubuntu22.04-rdma-core-23.10
-
+RUN rm -rf nvshmem_src_3.2.5-1.txz nvshmem_src ubuntu22.04-rdma-core-23.10.tar \
+    deep_ep-1.0.0.5+6519814-cp310-cp310-linux_x86_64.whl sglang Mooncake \
+    go1.23.8.linux-amd64.tar.gz ubuntu22.04-rdma-core-23.10 \
+    ossutil-2.1.1-linux-amd64.zip ossutil-2.1.1-linux-amd64
