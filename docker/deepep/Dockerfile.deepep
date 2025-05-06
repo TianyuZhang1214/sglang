@@ -58,11 +58,11 @@ WORKDIR /sgl-workspace
 RUN pip3 config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 RUN python3 -m pip install --upgrade pip
 
-COPY . /sgl-workspace/SGLang
-
 RUN wget "https://gosspublic.alicdn.com/ossutil/v2/2.1.1/ossutil-2.1.1-linux-amd64.zip"
 RUN unzip ossutil-2.1.1-linux-amd64.zip
-COPY ./ossutil-2.1.1-linux-amd64/ossutil /usr/local/bin/
+COPY /sgl-workspace/ossutil-2.1.1-linux-amd64/ossutil /usr/local/bin/
+
+COPY . /sgl-workspace/SGLang
 
 WORKDIR SGLang
 RUN pip3 install --no-cache-dir -e "python[all]"
