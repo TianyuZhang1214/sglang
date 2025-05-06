@@ -19,7 +19,6 @@ import signal
 import threading
 from enum import Enum, auto
 from typing import Optional
-import heapq
 
 import psutil
 import setproctitle
@@ -118,8 +117,6 @@ class DataParallelController:
                 )
 
         self.max_req_input_len = None
-
-        self.req_heap = MinHeap(server_args.dp_size)
 
     def launch_dp_schedulers(self, server_args, port_args, expert_location_metadata):
         base_gpu_id = 0
@@ -284,9 +281,7 @@ class DataParallelController:
         )
 
     def shortest_queue_scheduler(self, input_requests):
-        dp_rank_tuple = self.req_heap.peek()
-        self.workers[dp_rank_tuple[0]].send_pyobj(input_requests)
-        self.req_heap.push(dp_rank_tuple[0], dp_rank_tuple[1] + 1)
+        raise NotImplementedError()
 
     def event_loop(self):
         while True:
@@ -345,34 +340,3 @@ def run_data_parallel_controller_process(
         traceback = get_exception_traceback()
         logger.error(f"DataParallelController hit an exception: {traceback}")
         parent_process.send_signal(signal.SIGQUIT)
-
-
-class MinHeap:
-    def __init__(self, value_cnt):
-        self.heap = []
-        for i in range(value_cnt):
-            self.push(i, 0)
-
-    def push(self, key, value):
-        """Push a <key, value> pair into the heap based on value"""
-        heapq.heappush(self.heap, (value, key))
-
-    def pop(self):
-        """Pop and return the <key, value> with the smallest value"""
-        if len(self.heap) == 0:
-            raise IndexError("pop from an empty heap")
-        value, key = heapq.heappop(self.heap)
-        return key, value
-
-    def peek(self):
-        """Return the smallest element without removing it"""
-        if len(self.heap) == 0:
-            raise IndexError("peek from an empty heap")
-        value, key = self.heap[0]
-        return key, value
-
-    def size(self):
-        return len(self.heap)
-
-    def is_empty(self):
-        return len(self.heap) == 0
