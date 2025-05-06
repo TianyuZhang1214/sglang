@@ -59,8 +59,7 @@ RUN pip3 config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/w
 RUN python3 -m pip install --upgrade pip
 
 RUN wget "https://gosspublic.alicdn.com/ossutil/v2/2.1.1/ossutil-2.1.1-linux-amd64.zip"
-RUN unzip ossutil-2.1.1-linux-amd64.zip
-COPY /sgl-workspace/ossutil-2.1.1-linux-amd64/ossutil /usr/local/bin/
+RUN unzip ossutil-2.1.1-linux-amd64.zip -d /usr/local/bin/
 
 COPY . /sgl-workspace/SGLang
 
