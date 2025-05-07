@@ -1135,6 +1135,12 @@ async def benchmark(
         except Exception as e:
             print(f"Task failed with error: {e}")
             results.append(None)
+        except KeyboardInterrupt:
+            print(f"\nKeyboardInterrupt after {len(results)} requests ({args.early_stop_ratio * 100:.1f}% of total)")
+            for remaining_task in tasks:
+                if not remaining_task.done():
+                    remaining_task.cancel()
+            break
 
     outputs = results
 
