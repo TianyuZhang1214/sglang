@@ -29,12 +29,20 @@ class MiniLoadBalancer:
         self.prefill_servers = [p.url for p in prefill_configs]
         self.decode_servers = decode_servers
         self.profiling = False
+        self.round_robin_counter = 0
 
         profile_dir = os.getenv("SGLANG_TORCH_PROFILER_DIR", "./tmp")
         os.makedirs(profile_dir, exist_ok=True)
 
     def select_pair(self):
-        prefill_config = random.choice(self.prefill_configs)
+        # prefill_config = random.choice(self.prefill_configs)
+
+        # using round_robin in selecting prefill nodes
+        prefill_config = self.prefill_configs[self.round_robin_counter]
+        self.round_robin_counter = (self.round_robin_counter + 1) % len(
+            self.prefill_configs
+        )
+
         decode_server = random.choice(self.decode_servers)
         return prefill_config.url, prefill_config.bootstrap_port, decode_server
 
