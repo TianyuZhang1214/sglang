@@ -313,8 +313,6 @@ class CudaGraphRunner:
 
     def can_run(self, forward_batch: ForwardBatch):
         if self.enable_dp_attention or self.enable_sp_layernorm:
-            total_global_tokens = sum(forward_batch.global_num_tokens_cpu)
-
             reducer = max if self.moe_dense_fully_dp else sum
             # DeepEP MoE layers uses a fixed shape with masking instead of gather tokens from DP ranks.
             total_global_tokens = reducer(forward_batch.global_num_tokens_cpu)
@@ -346,6 +344,9 @@ class CudaGraphRunner:
             else True
         )
 
+        if not (is_bs_supported and is_encoder_lens_supported and is_tbo_supported):
+            print(f"cant't run cuda graph on because of is_bs_supported: {is_bs_supported}, "
+                  f"is_encoder_lens_supported: {is_encoder_lens_supported}, is_tbo_supported: {is_tbo_supported}")
         return is_bs_supported and is_encoder_lens_supported and is_tbo_supported
 
     def capture(self):
