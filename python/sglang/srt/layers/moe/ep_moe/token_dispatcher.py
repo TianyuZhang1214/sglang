@@ -10,7 +10,8 @@ from sglang.srt.utils import (
 )
 
 # TODO do not hardcode
-DEEPEP_NUM_SMS = 24
+DEEPEP_NUM_SMS = get_int_env_var("SGLANG_HACK_DEEPEP_NUM_SMS", 24)
+print(f"hi {DEEPEP_NUM_SMS=}")
 
 _enable_jit_deepgemm = False
 try:
@@ -257,7 +258,8 @@ class _DeepEPDispatcherImplNormal(_DeepEPDispatcherImplBase):
         topk_idx = topk_idx.to(torch.int64)
         # NOTE fix
         if _enable_jit_deepgemm:
-            hidden_states = per_token_cast_to_fp8(hidden_states)
+            # hidden_states = per_token_cast_to_fp8(hidden_states)
+            hidden_states = sglang_per_token_group_quant_fp8(hidden_states, 128)
         previous_event = Buffer.capture() if self.async_finish else None
         return hidden_states, topk_idx, topk_weights, previous_event
 
@@ -370,7 +372,11 @@ class _DeepEPDispatcherImplNormal(_DeepEPDispatcherImplBase):
         )
 
         get_global_expert_distribution_recorder().on_deepep_dispatch_normal(
-            num_recv_tokens_per_expert_list
+            num_recv_tokens_per_expert_list,
+            # TODO hack
+            num_tokens_per_rank=num_tokens_per_rank,
+            num_tokens_per_rdma_rank=num_tokens_per_rdma_rank,
+            num_tokens_per_expert=num_tokens_per_expert,
         )
 
         return (

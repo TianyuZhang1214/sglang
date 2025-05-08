@@ -1089,6 +1089,13 @@ class ModelRunner:
         self, forward_batch: ForwardBatch, skip_attn_backend_init: bool = False
     ) -> LogitsProcessorOutput:
         self.forward_pass_id += 1
+
+        # NOTE HACK
+        with torch.autograd.profiler.record_function(
+            f"HACK_TIME_ALIGNMENT {time.time()=}"
+        ):
+            self.dummy_function()
+
         with get_global_expert_distribution_recorder().with_forward_pass(
             self.forward_pass_id
         ):
@@ -1114,6 +1121,9 @@ class ModelRunner:
                 with torch.autograd.profiler.record_function(debug_name):
                     return self._forward_raw(forward_batch, skip_attn_backend_init)
 
+    def dummy_function(self):
+        pass
+
     def _forward_raw(
         self, forward_batch: ForwardBatch, skip_attn_backend_init: bool
     ) -> LogitsProcessorOutput:
@@ -1129,14 +1139,15 @@ class ModelRunner:
                 forward_batch, skip_attn_backend_init=skip_attn_backend_init
             )
 
-        #if not forward_batch.forward_mode.is_extend():
-        #    print(
-        #        f"hi WARN! not using cuda graph for non-extend! "
-        #        f"{sum(forward_batch.global_num_tokens_cpu)=} "
-        #        f"{forward_batch.can_run_dp_cuda_graph=} "
-        #        f"{self.server_args.disable_cuda_graph_padding=} "
-        #        f"{forward_batch.can_run_tbo=} "
-        #    )
+        if not forward_batch.forward_mode.is_extend():
+            print(
+                f"hi WARN! not using cuda graph for non-extend! "
+                f"{sum(forward_batch.global_num_tokens_cpu)=} "
+                f"{forward_batch.can_run_dp_cuda_graph=} "
+                f"{self.server_args.disable_cuda_graph_padding=} "
+                f"{forward_batch.can_run_tbo=} "
+                f"{forward_batch.forward_mode=}"
+            )
 
         if forward_batch.forward_mode.is_decode():
             return self.forward_decode(forward_batch)

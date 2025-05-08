@@ -648,6 +648,11 @@ class Scheduler(
             )
             metadata_buffers = [output_id_buffer]
 
+            if not self.enable_overlap:
+                self.disagg_launch_done = threading.Event()
+            else:
+                self.disagg_launch_done = None
+
             self.disagg_prefill_bootstrap_queue = PrefillBootstrapQueue(
                 token_to_kv_pool=self.token_to_kv_pool_allocator.get_kvcache(),
                 req_to_metadata_buffer_idx_allocator=req_to_metadata_buffer_idx_allocator,
@@ -1429,6 +1434,13 @@ class Scheduler(
         """Run a batch."""
         self.forward_ct += 1
 
+        # NOTE HACK
+        if self.forward_ct == 5:
+            text = f"[All threads of {os.getpid()=}, {self.tp_rank=}]"
+            for thread in threading.enumerate():
+                text += f" [{thread.name=} {thread.ident=} {thread.native_id=}]"
+            print(text, flush=True)
+
         # Check profiler
         if (
             self.profiler_target_forward_ct
@@ -1981,8 +1993,8 @@ class Scheduler(
                 recv_req.num_steps,
                 recv_req.activities,
                 # NOTE fix
-                recv_req.with_stack,
-                # False,
+                # recv_req.with_stack,
+                False,
                 recv_req.record_shapes,
                 recv_req.profile_id,
             )
@@ -2025,7 +2037,7 @@ class Scheduler(
         torchprof_activities = [
             activity_map[a] for a in activities if a in activity_map
         ]
-        print(f"hi {torchprof_activities=}")
+        print(f"hi {torchprof_activities=} {with_stack=} {record_shapes=}")
 
         if torchprof_activities:
             self.torch_profiler = torch.profiler.profile(
@@ -2046,8 +2058,12 @@ class Scheduler(
             # The caller will be notified when reaching profiler_target_forward_ct
         else:
             self.profiler_target_forward_ct = None
-            # TODO fix?
-            # return ProfileReqOutput(success=True, message="Succeeded")
+            return ProfileReqOutput(success=True, message="Succeeded")
+
+        if get_bool_env_var(
+            "SGLANG_HACK_DISABLE_SLOW_DOWN_WHEN_START_PROFILE", "false"
+        ):
+            self.slow_down(SlowDownReqInput(forward_sleep_time=None))
 
     def stop_profile(self) -> None:
         if self.profiler_activities is None:
@@ -2085,9 +2101,19 @@ class Scheduler(
         self.torch_profiler_output_dir = None
         self.profiler_activities = None
 
+        # TODO fix?
+        print("hi set self.profiler_target_forward_ct = none")
+        self.profiler_target_forward_ct = None
+
+        if get_bool_env_var(
+            "SGLANG_HACK_DUMP_EXPERT_DISTRIBUTION_WHEN_STOP_PROFILE", "false"
+        ):
+            self.expert_distribution_handle(ExpertDistributionReq.DUMP_RECORD)
+
         return ProfileReqOutput(success=True, message="Succeeded")
 
     def expert_distribution_handle(self, recv_req: ExpertDistributionReq):
+        print(f"hi expert_distribution_handle {recv_req=}", flush=True)
         dump_output = None
         if recv_req == ExpertDistributionReq.START_RECORD:
             get_global_expert_distribution_recorder().start_record()
