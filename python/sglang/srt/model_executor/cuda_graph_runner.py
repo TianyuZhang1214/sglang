@@ -344,9 +344,9 @@ class CudaGraphRunner:
             else True
         )
 
-        if not (is_bs_supported and is_encoder_lens_supported and is_tbo_supported):
-            print(f"cant't run cuda graph on because of is_bs_supported: {is_bs_supported}, "
-                  f"is_encoder_lens_supported: {is_encoder_lens_supported}, is_tbo_supported: {is_tbo_supported}")
+        # if not (is_bs_supported and is_encoder_lens_supported and is_tbo_supported):
+        #     print(f"cant't run cuda graph on because of is_bs_supported: {is_bs_supported}, "
+        #           f"is_encoder_lens_supported: {is_encoder_lens_supported}, is_tbo_supported: {is_tbo_supported}")
         return is_bs_supported and is_encoder_lens_supported and is_tbo_supported
 
     def capture(self):
