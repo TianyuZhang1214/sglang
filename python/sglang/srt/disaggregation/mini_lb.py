@@ -29,6 +29,7 @@ class MiniLoadBalancer:
         self.prefill_servers = [p.url for p in prefill_configs]
         self.decode_servers = decode_servers
         self.profiling = False
+        self.recording = False
         self.round_robin_counter = 0
 
         profile_dir = os.getenv("SGLANG_TORCH_PROFILER_DIR", "./tmp")
@@ -75,6 +76,64 @@ class MiniLoadBalancer:
             responses = await asyncio.gather(*tasks)
             success = all(response.status == 200 for response in responses)
             return {"success": success, "message": "Profiling stopped" if success else "Failed to stop profiling"}
+
+    async def start_expert_distribution_record(self):
+        if self.recording:
+            return {"success": False, "message": "Recoding is already in progress"}
+
+        self.recording = True
+        async with aiohttp.ClientSession() as session:
+            tasks = []
+            for server in chain(self.prefill_servers, self.decode_servers):
+                tasks.append(session.post(f"{server}/start_expert_distribution_record"))
+
+            responses = await asyncio.gather(*tasks)
+            success = all(response.status == 200 for response in responses)
+            return {"success": success, "message": "Recording expert distribution started" if success else "Failed to start recording expert distribution"}
+
+    async def stop_expert_distribution_record(self):
+        if not self.recording:
+            return {"success": False, "message": "Recoding is not in progress"}
+
+        self.recording = False
+        async with aiohttp.ClientSession() as session:
+            tasks = []
+            for server in chain(self.prefill_servers, self.decode_servers):
+                tasks.append(session.post(f"{server}/stop_expert_distribution_record"))
+
+            responses = await asyncio.gather(*tasks)
+            success = all(response.status == 200 for response in responses)
+            return {"success": success, "message": "Recording expert distribution stopped" if success else "Failed to stop recording expert distribution"}
+
+    async def dump_expert_distribution_record(self):
+        async with aiohttp.ClientSession() as session:
+            tasks = []
+            for server in chain(self.prefill_servers, self.decode_servers):
+                tasks.append(session.post(f"{server}/dump_expert_distribution_record"))
+
+            responses = await asyncio.gather(*tasks)
+            success = all(response.status == 200 for response in responses)
+            return {"success": success, "message": "Dumping expert distribution succeed" if success else "Failed to dumping expert distribution"}
+
+    async def eplb_rebalance(self):
+        async with aiohttp.ClientSession() as session:
+            tasks = []
+            for server in chain(self.prefill_servers, self.decode_servers):
+                tasks.append(session.post(f"{server}/eplb_rebalance"))
+
+            responses = await asyncio.gather(*tasks)
+            success = all(response.status == 200 for response in responses)
+            return {"success": success, "message": "EPLB rebalanced" if success else "Failed to rebalancing EPLB."}
+
+    async def eplb_save_expert_distribution(self):
+        async with aiohttp.ClientSession() as session:
+            tasks = []
+            for server in chain(self.prefill_servers, self.decode_servers):
+                tasks.append(session.post(f"{server}/eplb_save_expert_distribution"))
+
+            responses = await asyncio.gather(*tasks)
+            success = all(response.status == 200 for response in responses)
+            return {"success": success, "message": "Saving expert distribution succeed" if success else "Failed to saving expert distribution."}
 
     async def generate(
         self, modified_request, prefill_server, decode_server, endpoint
@@ -329,6 +388,39 @@ async def stop_profile():
     if load_balancer is None:
         raise HTTPException(status_code=500, detail="Load balancer not initialized")
     return await load_balancer.stop_profile()
+
+@app.post("/start_expert_distribution_record")
+async def start_expert_distribution_record():
+    """Start recording the expert distribution. Clear the previous record if any."""
+    if load_balancer is None:
+        raise HTTPException(status_code=500, detail="Load balancer not initialized")
+    return await load_balancer.start_expert_distribution_record()
+
+@app.post("/stop_expert_distribution_record")
+async def stop_expert_distribution_record():
+    """Stop recording the expert distribution."""
+    if load_balancer is None:
+        raise HTTPException(status_code=500, detail="Load balancer not initialized")
+    return await load_balancer.stop_expert_distribution_record()
+
+@app.post("/dump_expert_distribution_record")
+async def dump_expert_distribution_record():
+    """Dump expert distribution record."""
+    if load_balancer is None:
+        raise HTTPException(status_code=500, detail="Load balancer not initialized")
+    return await load_balancer.dump_expert_distribution_record()
+
+@app.post("/eplb_rebalance")
+async def eplb_rebalance():
+    if load_balancer is None:
+        raise HTTPException(status_code=500, detail="Load balancer not initialized")
+    return await load_balancer.eplb_rebalance()
+
+@app.post("/eplb_save_expert_distribution")
+async def eplb_save_expert_distribution():
+    if load_balancer is None:
+        raise HTTPException(status_code=500, detail="Load balancer not initialized")
+    return await load_balancer.eplb_save_expert_distribution()
 
 
 def run(prefill_configs, decode_addrs, host, port):
