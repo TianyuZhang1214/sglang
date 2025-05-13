@@ -293,6 +293,9 @@ async def handle_generate_request(request_data: dict):
             }
         )
     else:
+        req_id = modified_request.get("req_id", None)
+        bootstrap_room = req_id if req_id is not None else _generate_bootstrap_room()
+        print(f"bootstrap_room: {bootstrap_room}")
         modified_request.update(
             {
                 "bootstrap_host": hostname,
