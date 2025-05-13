@@ -43,7 +43,6 @@ ASSISTANT_SUFFIX = "Assistant:"
 
 global args
 
-
 # don't want to import sglang package here
 def _get_bool_env_var(name: str, default: str = "false") -> bool:
     value = os.getenv(name, default)
@@ -1022,20 +1021,22 @@ async def benchmark(
     else:
         lora_name = None
 
-    # Create the test input once
-    test_input = RequestFuncInput(
-        model=model_id,
-        prompt=test_prompt,
-        api_url=api_url,
-        prompt_len=test_prompt_len,
-        output_len=min(test_output_len, 32),
-        lora_name=lora_name,
-        extra_request_body=extra_request_body,
-    )
-
-    # Run warmup requests
     warmup_tasks = []
+    # Run warmup requests
     for _ in range(args.warmup_requests):
+        current_req_body = extra_request_body.copy()
+        if args.add_req_id:
+            current_req_body["req_id"] = ReqIDGenerator.get_next_id()
+
+        test_input = RequestFuncInput(
+            model=model_id,
+            prompt=test_prompt,
+            api_url=api_url,
+            prompt_len=test_prompt_len,
+            output_len=min(test_output_len, 32),
+            lora_name=lora_name,
+            extra_request_body=current_req_body,
+        )
         warmup_tasks.append(
             asyncio.create_task(request_func(request_func_input=test_input))
         )
@@ -1085,9 +1086,6 @@ async def benchmark(
     total_requests = len(input_requests)
     early_stop_threshold = int(total_requests * args.early_stop_ratio) if args.early_stop_ratio > 0 else None
 
-    req_id = 0
-    extra_request_body = {}
-
     async for request in get_request(input_requests, request_rate):
         prompt, prompt_len, output_len = request
         if lora_names is not None and len(lora_names) != 0:
@@ -1097,13 +1095,12 @@ async def benchmark(
             lora_name = None
 
         if args.add_req_id:
-            req_id += 1
             current_req_body = extra_request_body.copy()
-            current_req_body["req_id"] = req_id
+            current_req_body["req_id"] = ReqIDGenerator.get_next_id()
         else:
             current_req_body = extra_request_body
 
-        print(f"Request id [#{req_id}]")
+        # print(f"Request id [#{req_id}]")
         request_func_input = RequestFuncInput(
             model=model_id,
             prompt=prompt,
@@ -1249,6 +1246,9 @@ async def benchmark(
     print("{:<40} {:<10.2f}".format("P99 ITL (ms):", metrics.p99_itl_ms))
     print("{:<40} {:<10.2f}".format("Max ITL (ms):", metrics.max_itl_ms))
     print("=" * 50)
+    if args.add_req_id:
+        print("{:<40} {:<10.2f}".format("Last Req id:", ReqIDGenerator.get_next_id()))
+        print("=" * 50)
 
     if (
         metrics.median_ttft_ms is not None
@@ -1353,6 +1353,9 @@ def run_benchmark(args_: argparse.Namespace):
         args.warmup_requests = 1
 
     print(f"benchmark_args={args}")
+
+    if args.add_req_id and args.req_id_start is not None:
+        ReqIDGenerator.init_req_id(args.req_id_start)
 
     # Set global environments
     set_ulimit()
@@ -1494,6 +1497,23 @@ class LoRAPathAction(argparse.Action):
         setattr(namespace, self.dest, [])
         for lora_name in values:
             getattr(namespace, self.dest).append(lora_name)
+
+class ReqIDGenerator:
+    req_id = 0  # 类属性（默认初始值为0）
+
+    @classmethod
+    def get_next_id(cls):
+        """获取下一个自增ID"""
+        cls.req_id += 1
+        return cls.req_id
+
+    @classmethod
+    def init_req_id(cls, initial_value=0):
+        """初始化（或重置）req_id的值
+        Args:
+            initial_value (int): 初始值，默认为0
+        """
+        cls.req_id = initial_value
 
 
 if __name__ == "__main__":
