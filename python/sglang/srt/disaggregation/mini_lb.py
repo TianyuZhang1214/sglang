@@ -300,7 +300,7 @@ async def handle_generate_request(request_data: dict):
             {
                 "bootstrap_host": hostname,
                 "bootstrap_port": bootstrap_port,
-                "bootstrap_room": _generate_bootstrap_room(),
+                "bootstrap_room": bootstrap_room,
             }
         )
 
