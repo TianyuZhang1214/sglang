@@ -1125,6 +1125,7 @@ class DeepEPMoE(EPMoE):
             device=gateup_output.device,
             dtype=torch.bfloat16,
         )
+        # TODO(moyun.zty): It seems down_input_scale is rewrited before being used, so it's commented now.
         # down_input_scale = torch.empty(
         #     (
         #         all_tokens,
@@ -1133,9 +1134,9 @@ class DeepEPMoE(EPMoE):
         #     device=gateup_output.device,
         #     dtype=torch.float32,
         # )
+        # print(f"forward_deepgemm_contiguous: all_tokens: {all_tokens}, K: {K}")
         if not get_bool_env_var("SGLANG_HACK_DEL_MOE_ACT"):
             silu_and_mul(gateup_output.view(-1, N), down_input)
-        print(f"forward_deepgemm_contiguous: all_tokens: {all_tokens}, K: {K}")
         down_output = torch.empty(
             (all_tokens, K),
             device=gather_out.device,
