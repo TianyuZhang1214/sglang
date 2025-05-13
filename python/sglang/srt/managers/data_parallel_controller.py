@@ -276,7 +276,7 @@ class DataParallelController:
             worker_id = req.bootstrap_room % len(self.workers)
             self.workers[worker_id].send_pyobj(req)
             self.req_counter[worker_id] += 1
-            print(f"req_counter: {self.req_counter}")
+            print(f"Req with id [{req.bootstrap_room}] is assaigned to worker [{worker_id}] req_counter: {self.req_counter}")
 
     def full_round_robin_scheduler(self, req: Req):
         self.workers[self.round_robin_counter].send_pyobj(req)
