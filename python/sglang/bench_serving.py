@@ -1103,6 +1103,7 @@ async def benchmark(
         else:
             current_req_body = extra_request_body
 
+        print(f"Request id [#{req_id}]")
         request_func_input = RequestFuncInput(
             model=model_id,
             prompt=prompt,

@@ -117,6 +117,7 @@ class DataParallelController:
                 )
 
         self.max_req_input_len = None
+        self.req_counter = [0] * server_args.dp_size
 
     def launch_dp_schedulers(self, server_args, port_args, expert_location_metadata):
         base_gpu_id = 0
@@ -272,7 +273,10 @@ class DataParallelController:
                 self.workers
             )
         else:
-            self.workers[req.bootstrap_room % len(self.workers)].send_pyobj(req)
+            worker_id = req.bootstrap_room % len(self.workers)
+            self.workers[worker_id].send_pyobj(req)
+            self.req_counter[worker_id] += 1
+            print(f"req_counter: {self.req_counter}")
 
     def full_round_robin_scheduler(self, req: Req):
         self.workers[self.round_robin_counter].send_pyobj(req)
