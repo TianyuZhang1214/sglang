@@ -1125,14 +1125,14 @@ class DeepEPMoE(EPMoE):
             device=gateup_output.device,
             dtype=torch.bfloat16,
         )
-        down_input_scale = torch.empty(
-            (
-                all_tokens,
-                N // 2,
-            ),
-            device=gateup_output.device,
-            dtype=torch.float32,
-        )
+        # down_input_scale = torch.empty(
+        #     (
+        #         all_tokens,
+        #         N // 2,
+        #     ),
+        #     device=gateup_output.device,
+        #     dtype=torch.float32,
+        # )
         if not get_bool_env_var("SGLANG_HACK_DEL_MOE_ACT"):
             silu_and_mul(gateup_output.view(-1, N), down_input)
         down_output = torch.empty(
