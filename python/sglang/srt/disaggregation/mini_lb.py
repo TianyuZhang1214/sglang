@@ -136,7 +136,7 @@ class MiniLoadBalancer:
             success = all(response.status == 200 for response in responses)
             return {"success": success, "message": "Saving expert distribution succeed" if success else "Failed to saving expert distribution."}
 
-    async def max_req_id(self):
+    async def get_max_req_id(self):
         return {"max_req_id": self.max_req_id}
 
     async def generate(
@@ -430,11 +430,11 @@ async def eplb_save_expert_distribution():
         raise HTTPException(status_code=500, detail="Load balancer not initialized")
     return await load_balancer.eplb_save_expert_distribution()
 
-@app.post("/max_req_id")
-async def max_req_id():
+@app.post("/get_max_req_id")
+async def get_max_req_id():
     if load_balancer is None:
         raise HTTPException(status_code=500, detail="Load balancer not initialized")
-    return await load_balancer.max_req_id()
+    return await load_balancer.get_max_req_id()
 
 def run(prefill_configs, decode_addrs, host, port):
     global load_balancer

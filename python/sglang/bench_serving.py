@@ -733,6 +733,7 @@ def sample_random_requests(
         ]
         # Shuffle the dataset.
         random.shuffle(dataset)
+        uniq_req_count = args.uniq_req_count
 
         # Filter out sequences that are too long or too short
         input_requests: List[Tuple[str, int, int]] = []
@@ -740,6 +741,10 @@ def sample_random_requests(
             i = len(input_requests)
             if i == num_prompts:
                 break
+
+            if i >= uniq_req_count:
+                input_requests.append(input_requests[i % uniq_req_count])
+                continue
 
             # Tokenize the prompts and completions.
             prompt = data[0]
@@ -1088,10 +1093,6 @@ async def benchmark(
 
     async for request in get_request(input_requests, request_rate):
         prompt, prompt_len, output_len = request
-        if args.decode_only:
-            prompt = test_prompt
-            prompt_len = test_prompt_len
-            output_len = test_output_len
         if lora_names is not None and len(lora_names) != 0:
             idx = random.randint(0, len(lora_names) - 1)
             lora_name = lora_names[idx]
@@ -1358,9 +1359,6 @@ def run_benchmark(args_: argparse.Namespace):
 
     print(f"benchmark_args={args}")
 
-    if args.add_req_id and args.req_id_start is not None:
-        ReqIDGenerator.init_req_id(args.req_id_start)
-
     # Set global environments
     set_ulimit()
     random.seed(args.seed)
@@ -1387,6 +1385,12 @@ def run_benchmark(args_: argparse.Namespace):
         f"{args.base_url}/v1/models"
         if args.base_url
         else f"http://{args.host}:{args.port}/v1/models"
+    )
+
+    max_req_id_url = (
+        f"{args.base_url}/get_max_req_id"
+        if args.base_url
+        else f"http://{args.host}:{args.port}/get_max_req_id"
     )
 
     if args.backend in ["sglang", "sglang-native"]:
@@ -1450,6 +1454,20 @@ def run_benchmark(args_: argparse.Namespace):
             "\nWARNING It is recommended to use the `Chat` or `Instruct` model for benchmarking.\n"
             "Because when the tokenizer counts the output tokens, if there is gibberish, it might count incorrectly.\n"
         )
+
+    start_req_id = 0
+    if args.add_req_id:
+        if args.req_id_start is not None:
+            start_req_id = args.req_id_start
+        else:
+            try:
+                response = requests.get(max_req_id_url, headers=get_auth_headers())
+                start_req_id = response.json()["max_req_id"]
+            except (requests.exceptions.RequestException, KeyError, ValueError) as e:
+                print(f"Error getting max_req_id from {max_req_id_url}: {e}")
+                sys.exit(1)
+
+    ReqIDGenerator.init_req_id(start_req_id)
 
     print(f"{args}\n")
 
@@ -1756,9 +1774,10 @@ if __name__ == "__main__":
         help="Disable exponential interval",
     )
     parser.add_argument(
-        "--decode-only",
-        action="store_true",
-        help="Decode only",
+        "--uniq-req-count",
+        type=int,
+        default=0,
+        help="Unique request count",
     )
     args = parser.parse_args()
     run_benchmark(args)
