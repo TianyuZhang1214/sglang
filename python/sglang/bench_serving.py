@@ -1466,6 +1466,7 @@ def run_benchmark(args_: argparse.Namespace):
             except (requests.exceptions.RequestException, KeyError, ValueError) as e:
                 print(f"Error getting max_req_id from {max_req_id_url}: {e}")
                 sys.exit(1)
+        print(f"Generate requests with start_req_id {start_req_id}")
 
     ReqIDGenerator.init_req_id(start_req_id)
 

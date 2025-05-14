@@ -301,6 +301,7 @@ async def handle_generate_request(request_data: dict):
         if req_id is not None:
             bootstrap_room = req_id
             load_balancer.max_req_id = max(req_id, load_balancer.max_req_id)
+            print(f"Req_id: {req_id}")
         else:
             bootstrap_room = _generate_bootstrap_room()
         modified_request.update(
@@ -310,7 +311,6 @@ async def handle_generate_request(request_data: dict):
                 "bootstrap_room": bootstrap_room,
             }
         )
-        print(modified_request)
 
     if request_data.get("stream", False):
         return await load_balancer.generate_stream(
