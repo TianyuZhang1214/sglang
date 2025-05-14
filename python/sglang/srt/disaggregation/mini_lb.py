@@ -430,7 +430,7 @@ async def eplb_save_expert_distribution():
         raise HTTPException(status_code=500, detail="Load balancer not initialized")
     return await load_balancer.eplb_save_expert_distribution()
 
-@app.post("/get_max_req_id")
+@app.get("/get_max_req_id")
 async def get_max_req_id():
     if load_balancer is None:
         raise HTTPException(status_code=500, detail="Load balancer not initialized")

@@ -1458,7 +1458,7 @@ def run_benchmark(args_: argparse.Namespace):
     start_req_id = 0
     if args.add_req_id:
         try:
-            response = requests.post(max_req_id_url, headers=get_auth_headers())
+            response = requests.get(max_req_id_url, headers=get_auth_headers())
             start_req_id = response.json()["max_req_id"]
         except (requests.exceptions.RequestException, KeyError, ValueError) as e:
             print(f"Error getting max_req_id from {max_req_id_url}: {e}")
