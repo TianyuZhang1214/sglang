@@ -1457,18 +1457,14 @@ def run_benchmark(args_: argparse.Namespace):
 
     start_req_id = 0
     if args.add_req_id:
-        #if args.req_id_start is not None:
-        #    start_req_id = args.req_id_start
-        #else:
         try:
-            response = requests.get(max_req_id_url, headers=get_auth_headers())
+            response = requests.post(max_req_id_url, headers=get_auth_headers())
             start_req_id = response.json()["max_req_id"]
         except (requests.exceptions.RequestException, KeyError, ValueError) as e:
             print(f"Error getting max_req_id from {max_req_id_url}: {e}")
             sys.exit(1)
         print(f"Generate requests with start_req_id {start_req_id}")
-
-    ReqIDGenerator.init_req_id(start_req_id)
+        ReqIDGenerator.init_req_id(start_req_id)
 
     print(f"{args}\n")
 
@@ -1762,12 +1758,6 @@ if __name__ == "__main__":
         "--add-req-id",
         action="store_true",
         help="Add request ID to the request payload",
-    )
-    parser.add_argument(
-        "--req-id-start",
-        type=int,
-        default=0,
-        help="Start request ID from",
     )
     parser.add_argument(
         "--disable-exponential-interval",
