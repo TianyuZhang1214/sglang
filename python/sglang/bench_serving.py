@@ -1088,6 +1088,10 @@ async def benchmark(
 
     async for request in get_request(input_requests, request_rate):
         prompt, prompt_len, output_len = request
+        if args.decode_only:
+            prompt = test_prompt
+            prompt_len = test_prompt_len
+            output_len = test_output_len
         if lora_names is not None and len(lora_names) != 0:
             idx = random.randint(0, len(lora_names) - 1)
             lora_name = lora_names[idx]
@@ -1750,6 +1754,11 @@ if __name__ == "__main__":
         "--disable-exponential-interval",
         action="store_true",
         help="Disable exponential interval",
+    )
+    parser.add_argument(
+        "--decode-only",
+        action="store_true",
+        help="Decode only",
     )
     args = parser.parse_args()
     run_benchmark(args)
