@@ -310,6 +310,7 @@ async def handle_generate_request(request_data: dict):
                 "bootstrap_room": bootstrap_room,
             }
         )
+        print(modified_request)
 
     if request_data.get("stream", False):
         return await load_balancer.generate_stream(
