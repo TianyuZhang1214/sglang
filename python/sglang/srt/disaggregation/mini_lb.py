@@ -31,6 +31,7 @@ class MiniLoadBalancer:
         self.profiling = False
         self.recording = False
         self.round_robin_counter = 0
+        self.max_req_id = 0
 
         profile_dir = os.getenv("SGLANG_TORCH_PROFILER_DIR", "./tmp")
         os.makedirs(profile_dir, exist_ok=True)
@@ -134,6 +135,9 @@ class MiniLoadBalancer:
             responses = await asyncio.gather(*tasks)
             success = all(response.status == 200 for response in responses)
             return {"success": success, "message": "Saving expert distribution succeed" if success else "Failed to saving expert distribution."}
+
+    async def max_req_id(self):
+        return {"max_req_id": self.max_req_id}
 
     async def generate(
         self, modified_request, prefill_server, decode_server, endpoint
@@ -294,8 +298,11 @@ async def handle_generate_request(request_data: dict):
         )
     else:
         req_id = modified_request.get("req_id", None)
-        bootstrap_room = req_id if req_id is not None else _generate_bootstrap_room()
-        print(f"bootstrap_room: {bootstrap_room}")
+        if req_id is not None:
+            bootstrap_room = req_id
+            load_balancer.max_req_id = max(req_id, load_balancer.max_req_id)
+        else:
+            bootstrap_room = _generate_bootstrap_room()
         modified_request.update(
             {
                 "bootstrap_host": hostname,
@@ -322,14 +329,11 @@ async def handle_completion_request(request_data: dict):
     parsed_url = urllib.parse.urlparse(prefill_server)
     hostname = parsed_url.hostname
     modified_request = request_data.copy()
-    req_id = modified_request.get("req_id", None)
-    bootstrap_room = req_id if req_id is not None else random.randint(0, 2**63 - 1)
-    print(f"bootstrap_room: {bootstrap_room}")
     modified_request.update(
         {
             "bootstrap_host": hostname,
             "bootstrap_port": bootstrap_port,
-            "bootstrap_room": bootstrap_room,
+            "bootstrap_room": _generate_bootstrap_room(),
         }
     )
 
@@ -425,6 +429,11 @@ async def eplb_save_expert_distribution():
         raise HTTPException(status_code=500, detail="Load balancer not initialized")
     return await load_balancer.eplb_save_expert_distribution()
 
+@app.post("/max_req_id")
+async def max_req_id():
+    if load_balancer is None:
+        raise HTTPException(status_code=500, detail="Load balancer not initialized")
+    return await load_balancer.max_req_id()
 
 def run(prefill_configs, decode_addrs, host, port):
     global load_balancer
