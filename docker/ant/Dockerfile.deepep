@@ -1,10 +1,8 @@
 FROM reg.docker.alibaba-inc.com/xccl/deepep-train:12080176-20250422180748-1.0.0-0.0.0-47365c24-20250514120141
 LABEL authors="moyun.zty"
 
-RUN apt update -y
-
 # Mooncake安装
-pip install ant-mooncake-transfer-engine==0.3.0 -i https://artifacts.antgroup-inc.cn/artifact/repositories/simple-dev/
+RUN pip3 install ant-mooncake-transfer-engine==0.3.0 -i https://artifacts.antgroup-inc.cn/artifact/repositories/simple-dev/
 # Mooncake 依赖包
 RUN rpm --rebuilddb && yum install -y numactl
 
