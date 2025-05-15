@@ -1,14 +1,14 @@
 FROM reg.docker.alibaba-inc.com/xccl/deepep-train:12080176-20250422180748-1.0.0-0.0.0-47365c24-20250514120141
 LABEL authors="moyun.zty"
 
+RUN python3 -m pip install --upgrade pip
+# RUN pip3 config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 # Mooncake安装
 RUN pip3 install ant-mooncake-transfer-engine==0.3.0 -i https://artifacts.antgroup-inc.cn/artifact/repositories/simple-dev/
 # Mooncake 依赖包
 RUN yum install -y numactl
 
 WORKDIR /sgl-workspace
-RUN pip3 config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
-RUN python3 -m pip install --upgrade pip
 
 RUN wget "https://gosspublic.alicdn.com/ossutil/v2/2.1.1/ossutil-2.1.1-linux-amd64.zip"
 RUN unzip ossutil-2.1.1-linux-amd64.zip -d /usr/local/
