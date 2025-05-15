@@ -4,10 +4,7 @@ LABEL authors="moyun.zty"
 # Mooncake安装
 RUN pip3 install ant-mooncake-transfer-engine==0.3.0 -i https://artifacts.antgroup-inc.cn/artifact/repositories/simple-dev/
 # Mooncake 依赖包
-RUN rm -f /var/lib/rpm/__db* && \
-    rpm --rebuilddb && \
-    yum clean all && \
-    yum install -y numactl
+RUN yum install -y numactl
 
 WORKDIR /sgl-workspace
 RUN pip3 config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
