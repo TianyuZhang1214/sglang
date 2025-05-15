@@ -914,10 +914,13 @@ class ModelRunner:
                 )
         else:
             assert self.is_draft_worker
-
+        # logger.info(
+        #     f""
+        # )
         logger.info(
             f"Memory pool end. "
             f"avail mem={get_available_gpu_memory(self.device, self.gpu_id):.2f} GB"
+            f"PagedTokenToKVPoolAllocator: max_total_num_tokens={self.max_total_num_tokens}"
         )
 
     def init_cublas(self):
