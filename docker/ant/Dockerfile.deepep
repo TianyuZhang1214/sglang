@@ -1,0 +1,32 @@
+FROM reg.docker.alibaba-inc.com/xccl/deepep-train:12080176-20250422180748-1.0.0-0.0.0-47365c24-20250514120141
+LABEL authors="moyun.zty"
+
+RUN apt update -y
+
+# Mooncake安装
+pip install ant-mooncake-transfer-engine==0.3.0 -i https://artifacts.antgroup-inc.cn/artifact/repositories/simple-dev/
+# Mooncake 依赖包
+RUN rpm --rebuilddb && yum install -y numactl
+
+WORKDIR /sgl-workspace
+RUN pip3 config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
+RUN python3 -m pip install --upgrade pip
+
+RUN wget "https://gosspublic.alicdn.com/ossutil/v2/2.1.1/ossutil-2.1.1-linux-amd64.zip"
+RUN unzip ossutil-2.1.1-linux-amd64.zip -d /usr/local/
+RUN chmod +x /usr/local/ossutil-2.1.1-linux-amd64/ossutil
+RUN ln -s /usr/local/ossutil-2.1.1-linux-amd64/ossutil /usr/local/bin/ossutil
+
+COPY . /sgl-workspace/SGLang
+
+WORKDIR SGLang
+RUN pip3 install --no-cache-dir -e "python[all]"
+# RUN cat docker/deepep/deepep.env >> ~/.bashrc
+# RUN sed -i 's/constexpr int kNumWarpsPerGroup = 10;/constexpr int kNumWarpsPerGroup = 8;/g' /sgl-workspace/DeepEP/csrc/kernels/internode_ll.cu
+# RUN sed -i 's/constexpr int kNumWarpGroups = 3;/constexpr int kNumWarpGroups = 4;/g' /sgl-workspace/DeepEP/csrc/kernels/internode_ll.cu
+
+# WORKDIR /sgl-workspace
+# RUN rm -rf nvshmem_src_3.2.5-1.txz nvshmem_src ubuntu22.04-rdma-core-23.10.tar \
+#     deep_ep-1.0.0.5+6519814-cp310-cp310-linux_x86_64.whl sglang Mooncake \
+#     go1.23.8.linux-amd64.tar.gz ubuntu22.04-rdma-core-23.10 \
+#     ossutil-2.1.1-linux-amd64.zip ossutil-2.1.1-linux-amd64
