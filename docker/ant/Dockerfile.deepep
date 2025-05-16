@@ -7,7 +7,7 @@ RUN curl -o sgl_kernel-0.1.2.post1-cp39-abi3-linux_x86_64.whl "https://scmcenter
 RUN pip3 install sgl_kernel-0.1.2.post1-cp39-abi3-linux_x86_64.whl
 
 RUN yum install -y libnl3 mesa-libGL
-RUN wget -q http://dmsint.cn-hangzhou.alipay.aliyun-inc.com/aistudio%2Fgpu%2Frdma-a100.tgz -O /tmp/rdma-a100.tgz
+RUN curl -o /tmp/rdma-a100.tgz "http://dmsint.cn-hangzhou.alipay.aliyun-inc.com/aistudio%2Fgpu%2Frdma-a100.tgz"
 RUN tar -xvf /tmp/rdma-a100.tgz -C /tmp
 RUN rpm -Uvh /tmp/rdma-a100/nic-libs-mellanox-rdma-5.2-2.x86_64.rpm
 RUN rm -rf /tmp/rdma-a100.tgz /tmp/rdma-a100/
