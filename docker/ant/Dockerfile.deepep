@@ -1,7 +1,17 @@
-FROM reg.docker.alibaba-inc.com/xccl/deepep-train:12080176-20250422180748-1.0.0-0.0.0-47365c24-20250514120141
+FROM reg.docker.alibaba-inc.com/aii/aistudio:11880160-20250409174319
 LABEL authors="moyun.zty"
 
+RUN curl -o sgl_kernel-0.1.2.post1-cp39-abi3-linux_x86_64.whl "https://scmcenter.cn-hangzhou.alipay.aliyun-inc.com/antcodebuild/artifacts/WK50b0331b2cd74e1c862f92040aacb331/BJf6f8711c73b44ae58fb3641d37f0b9df/2025-05-16-05-00-39/sgl_kernel/sgl_kernel-0.1.2.post1-cp39-abi3-linux_x86_64.whl?Expires=1749963641&OSSAccessKeyId=bWwpuXuj5yuYKDDK&Signature=stfFsXMi%2BrR9TrfAaxn36lNBHHI%3D"
+RUN pip3 install sgl_kernel-0.1.2.post1-cp39-abi3-linux_x86_64.whl
+
 RUN python3 -m pip install --upgrade pip
+RUN wget https://scmcenter.cn-hangzhou.alipay.aliyun-inc.com/antcodebuild/artifacts/WK50b0331b2cd74e1c862f92040aacb331/BJf6f8711c73b44ae58fb3641d37f0b9df/2025-05-16-05-00-39/sgl_kernel/sgl_kernel-0.1.2.post1-cp39-abi3-linux_x86_64.whl
+RUN yum install -y libnl3 mesa-libGL
+RUN wget -q http://dmsint.cn-hangzhou.alipay.aliyun-inc.com/aistudio%2Fgpu%2Frdma-a100.tgz -O /tmp/rdma-a100.tgz
+RUN tar -xvf /tmp/rdma-a100.tgz -C /tmp
+RUN rpm -Uvh /tmp/rdma-a100/nic-libs-mellanox-rdma-5.2-2.x86_64.rpm
+RUN rm -rf /tmp/rdma-a100.tgz /tmp/rdma-a100/
+
 # RUN pip3 config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 # Mooncake安装
 RUN pip3 install ant-mooncake-transfer-engine==0.3.0 -i https://artifacts.antgroup-inc.cn/artifact/repositories/simple-dev/
