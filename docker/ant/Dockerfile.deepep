@@ -1,12 +1,11 @@
 FROM reg.docker.alibaba-inc.com/aii/aistudio:11880160-20250409174319
 LABEL authors="moyun.zty"
 
+RUN python3 -m pip install --upgrade pip
+
 RUN curl -o sgl_kernel-0.1.2.post1-cp39-abi3-linux_x86_64.whl "https://scmcenter.cn-hangzhou.alipay.aliyun-inc.com/antcodebuild/artifacts/WK50b0331b2cd74e1c862f92040aacb331/BJf6f8711c73b44ae58fb3641d37f0b9df/2025-05-16-05-00-39/sgl_kernel/sgl_kernel-0.1.2.post1-cp39-abi3-linux_x86_64.whl?Expires=1749963641&OSSAccessKeyId=bWwpuXuj5yuYKDDK&Signature=stfFsXMi%2BrR9TrfAaxn36lNBHHI%3D"
 RUN pip3 install sgl_kernel-0.1.2.post1-cp39-abi3-linux_x86_64.whl
 
-RUN python3 -m pip install --upgrade pip
-
-RUN wget https://scmcenter.cn-hangzhou.alipay.aliyun-inc.com/antcodebuild/artifacts/WK50b0331b2cd74e1c862f92040aacb331/BJf6f8711c73b44ae58fb3641d37f0b9df/2025-05-16-05-00-39/sgl_kernel/sgl_kernel-0.1.2.post1-cp39-abi3-linux_x86_64.whl
 RUN yum install -y libnl3 mesa-libGL
 RUN wget -q http://dmsint.cn-hangzhou.alipay.aliyun-inc.com/aistudio%2Fgpu%2Frdma-a100.tgz -O /tmp/rdma-a100.tgz
 RUN tar -xvf /tmp/rdma-a100.tgz -C /tmp
