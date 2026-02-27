@@ -31,6 +31,7 @@ from sglang.srt.layers.dp_attention import compute_dp_attention_world_info
 from sglang.srt.managers.io_struct import (
     ActiveRanksOutput,
     BlockReqInput,
+    HealthCheckOutput,
     TokenizedEmbeddingReqInput,
     TokenizedGenerateReqInput,
     WatchLoadUpdateReq,
@@ -133,6 +134,9 @@ class DataParallelController:
             self.recv_from_tokenizer = get_zmq_socket(
                 self.context, zmq.PULL, port_args.scheduler_input_ipc_name, False
             )
+            self.send_to_tokenizer = get_zmq_socket(
+                self.context, zmq.PUSH, port_args.tokenizer_ipc_name, False
+            )
 
         # Dispatch method
         self.round_robin_counter = 0
@@ -190,7 +194,29 @@ class DataParallelController:
     def update_active_ranks(self, ranks: ActiveRanksOutput):
         self.status = ranks.status
 
+    def _is_health_check_request(self, req):
+        rid = getattr(req, "rid", None)
+        return rid is not None and rid.startswith("HEALTH_CHECK")
+
+    def _maybe_handle_health_check(self, req) -> bool:
+        """Short-circuit health check when any DP rank is busy.
+
+        In EP mode, all DP ranks share NCCL all-to-all communication.
+        When one rank runs a long sequence, all others block at the barrier.
+        Dispatching a health check to any rank would get stuck.
+        If all ranks are idle, we still dispatch normally to verify the full pipeline.
+        """
+        if not self._is_health_check_request(req):
+            return False
+        if any(n > 0 for n in self.dp_budget.total_requests):
+            self.send_to_tokenizer.send_pyobj(HealthCheckOutput())
+            return True
+        return False
+
     def dispatching_with_trace(self, req: Req):
+        if self._maybe_handle_health_check(req):
+            return
+
         req.time_stats = DPControllerReqTimeStats.new_from_obj(req.time_stats)
 
         req.time_stats.set_dp_dispatch_time()
